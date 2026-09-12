@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>VOIDD Manager Hub</title>
+<style>
+:root{--bg:#03040a;--card:#0b0f18;--line:#1a1e2d;--ink:#f7f6ff;--dim:#858aa2;--gold:#a06cff;--cyan:#43def5;--bad:#ef4444}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--bg);color:var(--ink);font:14px/1.4 Inter,system-ui,sans-serif}
+body{display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);background:#080a12}
+.mark{width:22px;height:22px;border-radius:50%;border:5px solid transparent;border-top-color:#866fff;border-left-color:#b17dff;border-bottom-color:#4ec8ff}
+b.t{letter-spacing:.12em;font-size:12px}
+.sp{flex:1}
+button,select{background:#111521;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;cursor:pointer}
+button.go{background:var(--gold);color:#111;border:0;font-weight:650}
+main{flex:1;display:grid;grid-template-columns:260px 1fr 1fr;min-height:0}
+@media(max-width:860px){main{grid-template-columns:1fr;grid-template-rows:160px 1fr 220px}}
+aside,section{border-right:1px solid var(--line);min-height:0;display:flex;flex-direction:column}
+section:last-child{border-right:0}
+h2{font-size:11px;letter-spacing:.14em;color:var(--dim);padding:10px 12px 6px}
+.files,.hist{flex:1;overflow:auto;padding:0 8px 8px}
+.f{display:block;width:100%;text-align:left;background:0;border:0;padding:7px 8px;color:var(--dim);font-size:12px}
+.f:hover,.f.on{background:#111521;color:var(--ink)}
+.hist .m{margin:8px;padding:10px 12px;border-radius:10px;font-size:13px}
+.m.u{background:#3b2a6a;margin-left:18%}
+.m.a{background:var(--card);border:1px solid var(--line);margin-right:12%}
+.m .role{font-size:10px;letter-spacing:.12em;color:var(--cyan);margin-bottom:4px}
+.bar{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
+input,textarea{width:100%;background:#05070d;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font:12px/1.4 ui-monospace,Menlo,monospace}
+textarea{flex:1;resize:none;min-height:0}
+#ed{flex:1;min-height:0}
+.modal{position:fixed;inset:0;background:#000a;display:none;place-items:center;padding:16px}
+.modal.on{display:grid}
+.box{width:min(420px,100%);background:#0b0f18;border:1px solid var(--line);border-radius:14px;padding:16px}
+.box label{display:block;font-size:11px;letter-spacing:.1em;color:var(--dim);margin:10px 0 4px}
+.ok{color:var(--cyan);font-size:12px;padding:0 12px 8px}
+.bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <span class="mark"></span><b class="t">VOIDD HUB</b>
+  <span class="sp"></span>
+  <span id="st" class="ok">offline</span>
+  <button type="button" id="cfg">Config</button>
+  <button type="button" class="go" id="fetch">Fetch</button>
+</header>
+<main>
+  <aside>
+    <h2>REPO FILES</h2>
+    <div class="files" id="files">Config owner/repo, then Fetch.</div>
+  </aside>
+  <section>
+    <h2>FILE <span id="pathLab"></span></h2>
+    <textarea id="ed" placeholder="Open a file." spellcheck="false"></textarea>
+    <div class="bar">
+      <input id="cmsg" placeholder="commit message" value="hub: edit">
+      <button type="button" class="go" id="save">Commit</button>
+    </div>
+  </section>
+  <section>
+    <h2>MANAGER</h2>
+    <select id="agent">
+      <option value="manager">Manager</option>
+      <option value="architect">Architect</option>
+      <option value="coder">Coder</option>
+      <option value="auditor">Auditor</option>
+    </select>
+    <div class="hist" id="hist">
+      <div class="m a"><div class="role">MANAGER</div>Keys stay in this browser. Fetch the repo, open a file, talk, then commit. No local IP.</div>
+    </div>
+    <div class="bar">
+      <input id="prompt" placeholder="Ask. Current file is attached if open.">
+      <button type="button" class="go" id="send">Send</button>
+    </div>
+  </section>
+</main>
+<div class="modal" id="modal">
+  <div class="box">
+    <b>Config</b>
+    <p style="color:var(--dim);font-size:13px;margin-top:6px">Nothing here is committed. Fine-grained PAT: Contents Read/Write on the target repo.</p>
+    <label>Gemini key</label><input id="k" type="password" autocomplete="off">
+    <label>Model</label><input id="m" value="gemini-2.5-flash">
+    <label>Repo owner/name</label><input id="repo" placeholder="Kawhooped/arcade">
+    <label>Branch</label><input id="br" value="dd-main">
+    <label>GitHub token</label><input id="tok" type="password" autocomplete="off">
+    <div class="bar" style="border:0;padding:12px 0 0">
+      <button type="button" class="go" id="saveCfg">Save</button>
+      <button type="button" id="closeCfg">Close</button>
+    </div>
+  </div>
+</div>
+<script>
+const K={k:"hub_k",m:"hub_m",repo:"hub_repo",br:"hub_br",tok:"hub_tok"};
+const S={k:localStorage.getItem(K.k)||"",m:localStorage.getItem(K.m)||"gemini-2.5-flash",repo:localStorage.getItem(K.repo)||"Kawhooped/arcade",br:localStorage.getItem(K.br)||"dd-main",tok:localStorage.getItem(K.tok)||""};
+const DIR={manager:"You are VOIDD lead manager. Short plans. Hand work to coder/architect/auditor when needed.",architect:"You are a software architect. Structure, tradeoffs, no fluff.",coder:"You are a full-stack coder. Return complete files. HTML/JS first.",auditor:"You are QA. Bugs, XSS, missing sha/commit, edge cases."};
+let filePath="", fileSha="", files=[];
+const $=id=>document.getElementById(id);
+function status(t,bad){$("st").textContent=t;$("st").className=bad?"bad":"ok"}
+function hdr(){const h={"Accept":"application/vnd.github+json"};if(S.tok)h.Authorization="Bearer "+S.tok;return h}
+function ownerRepo(){const [o,...r]=S.repo.split("/");return {o,r:r.join("/")}}
+async function fetchTree(){
+  const {o,r}=ownerRepo();
+  if(!o||!r)return openCfg();
+  status("listing…");$("files").textContent="listing…";
+  try{
+    const res=await fetch(`https://api.github.com/repos/${o}/${r}/git/trees/${encodeURIComponent(S.br)}?recursive=1`,{headers:hdr()});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.message||res.status);
+    files=(data.tree||[]).filter(t=>t.type==="blob").slice(0,400);
+    $("files").innerHTML="";
+    files.forEach(t=>{const b=document.createElement("button");b.type="button";b.className="f";b.textContent=t.path;b.onclick=()=>openFile(t.path);$("files").appendChild(b);});
+    status(o+"/"+r+" · "+files.length+" files");
+  }catch(e){status(e.message,1);$("files").textContent=e.message}
+}
+async function openFile(path){
+  const {o,r}=ownerRepo();status("read "+path);
+  try{
+    const res=await fetch(`https://api.github.com/repos/${o}/${r}/contents/${path}?ref=${encodeURIComponent(S.br)}`,{headers:hdr()});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.message||res.status);
+    filePath=path;fileSha=data.sha;$("pathLab").textContent=path;
+    $("ed").value=decodeURIComponent(escape(atob(data.content.replace(/\n/g,""))));
+    [...$("files").children].forEach(el=>el.classList.toggle("on",el.textContent===path));
+    status("open "+path);
+  }catch(e){status(e.message,1)}
+}
+async function commitFile(){
+  if(!filePath)return status("open a file first",1);
+  if(!S.tok)return status("token required to write",1);
+  const {o,r}=ownerRepo();
+  const body={message:$("cmsg").value||"hub: edit",content:btoa(unescape(encodeURIComponent($("ed").value))),branch:S.br,sha:fileSha};
+  status("commit…");
+  try{
+    const res=await fetch(`https://api.github.com/repos/${o}/${r}/contents/${filePath}`,{method:"PUT",headers:{...hdr(),"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.message||res.status);
+    fileSha=data.content.sha;status("committed "+filePath);
+  }catch(e){status(e.message,1)}
+}
+function addMsg(kind,role,text){
+  const d=document.createElement("div");d.className="m "+kind;
+  d.innerHTML=`<div class="role">${role}</div>`+text.replace(/[&<>]/g,c=>({"&":"&","<":"<",">":">"}[c])).replace(/\n/g,"<br>");
+  $("hist").appendChild(d);$("hist").scrollTop=$("hist").scrollHeight;
+}
+async function send(){
+  const txt=$("prompt").value.trim();if(!txt)return;if(!S.k)return openCfg();
+  $("prompt").value="";addMsg("u","YOU",txt);
+  const role=$("agent").value;
+  const fileBit=filePath?`\n\nOpen file ${filePath}:\n${$("ed").value.slice(0,12000)}`:"";
+  addMsg("a",role.toUpperCase(),"thinking…");const slot=$("hist").lastChild;
+  try{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${S.m}:generateContent?key=${encodeURIComponent(S.k)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{role:"user",parts:[{text:DIR[role]+"\n\n"+txt+fileBit}]}]})});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error?.message||res.status);
+    const reply=data.candidates?.[0]?.content?.parts?.[0]?.text||"empty";
+    slot.innerHTML=`<div class="role">${role.toUpperCase()}</div>`+reply.replace(/[&<>]/g,c=>({"&":"&","<":"<",">":">"}[c])).replace(/\n/g,"<br>");
+  }catch(e){slot.innerHTML=`<div class="role">ERROR</div>${e.message}`}
+}
+function openCfg(){$("k").value=S.k;$("m").value=S.m;$("repo").value=S.repo;$("br").value=S.br;$("tok").value=S.tok;$("modal").className="modal on"}
+function saveCfg(){
+  S.k=$("k").value.trim();S.m=$("m").value.trim()||"gemini-2.5-flash";S.repo=$("repo").value.trim();S.br=$("br").value.trim()||"dd-main";S.tok=$("tok").value.trim();
+  localStorage.setItem(K.k,S.k);localStorage.setItem(K.m,S.m);localStorage.setItem(K.repo,S.repo);localStorage.setItem(K.br,S.br);localStorage.setItem(K.tok,S.tok);
+  $("modal").className="modal";status("saved locally");
+}
+$("cfg").onclick=openCfg;$("closeCfg").onclick=()=>$("modal").className="modal";
+$("saveCfg").onclick=saveCfg;$("fetch").onclick=fetchTree;$("save").onclick=commitFile;$("send").onclick=send;
+$("prompt").onkeydown=e=>{if(e.key==="Enter")send()};
+status(S.repo?"ready · "+S.repo:"set config");
+</script>
+</body>
+</html>
